@@ -1,3 +1,92 @@
+# name: SSE CI/CD
+
+# on:
+#   push:
+
+# jobs:
+#   style_check:
+#     name: style_check
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.x'
+#       - name: Install dependencies
+#         run: pip install -r requirements-dev.txt
+#       - name: Check code style
+#         run: black --check .
+
+#   test:
+#     name: test
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.x'
+#       - name: Install dependencies
+#         run: pip install -r requirements-dev.txt
+#       - name: Debug - Show directory structure
+#         run: |
+#           echo "Current directory:"
+#           pwd
+#           echo "Directory contents:"
+#           ls -la
+#           echo "Tests directory:"
+#           ls -la tests/
+#           echo "Python path:"
+#           python -c "import sys; print('\n'.join(sys.path))"
+#       - name: Run tests with coverage
+#         run: |
+#           coverage run -m pytest tests/ -v || true
+#           echo "After pytest:"
+#           ls -la
+#           if [ -f .coverage ]; then
+#             echo ".coverage file exists"
+#             ls -lh .coverage
+#           else
+#             echo ".coverage file does NOT exist"
+#           fi
+#       - name: Upload coverage data
+#         if: always()
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: coverage-data
+#           path: .coverage
+#           retention-days: 1
+#           if-no-files-found: warn
+
+#   coverage_report:
+#     name: coverage_report
+#     runs-on: ubuntu-latest
+#     needs: test
+#     if: success()
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.x'
+#       - name: Install dependencies
+#         run: pip install -r requirements-dev.txt
+#       - name: Download coverage data
+#         uses: actions/download-artifact@v4
+#         with:
+#           name: coverage-data
+#       - name: Verify coverage file
+#         run: |
+#           ls -la
+#           test -f .coverage && echo ".coverage downloaded successfully"
+#       - name: Generate coverage report
+#         run: coverage report
+#       - name: Generate XML coverage report
+#         run: coverage xml
+#       - name: Upload coverage XML
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: coverage-xml
+#           path: coverage.xml
+#           retention-days: 14
 name: SSE CI/CD
 
 on:
@@ -8,79 +97,84 @@ jobs:
     name: style_check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-      - name: Check code style
+
+      - name: Install black
+        run: pip install black
+
+      - name: Check code style with black
         run: black --check .
 
   test:
     name: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-      - name: Debug - Show directory structure
         run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory contents:"
-          ls -la
-          echo "Tests directory:"
-          ls -la tests/
-          echo "Python path:"
-          python -c "import sys; print('\n'.join(sys.path))"
+          pip install pytest coverage numpy matplotlib
+
       - name: Run tests with coverage
         run: |
-          coverage run -m pytest tests/ -v || true
-          echo "After pytest:"
-          ls -la
-          if [ -f .coverage ]; then
-            echo ".coverage file exists"
-            ls -lh .coverage
-          else
-            echo ".coverage file does NOT exist"
-          fi
+          # Tests ausführen
+          python -m coverage run --source=. -m pytest tests/ -v
+          
+          # Fix für Upload-Problem: .coverage (versteckt) in coverage_data (sichtbar) umbenennen
+          mv .coverage coverage_data
+
       - name: Upload coverage data
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-data
-          path: .coverage
+          path: coverage_data
           retention-days: 1
-          if-no-files-found: warn
 
   coverage_report:
     name: coverage_report
     runs-on: ubuntu-latest
     needs: test
-    if: success()
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: |
+          pip install coverage numpy matplotlib
+
       - name: Download coverage data
         uses: actions/download-artifact@v4
         with:
           name: coverage-data
-      - name: Verify coverage file
+
+      - name: Restore coverage file
         run: |
-          ls -la
-          test -f .coverage && echo ".coverage downloaded successfully"
+          # Datei wieder zurück in .coverage umbenennen, damit coverage sie findet
+          mv coverage_data .coverage
+
       - name: Generate coverage report
         run: coverage report
-      - name: Generate XML coverage report
+
+      - name: Generate coverage XML
         run: coverage xml
+
       - name: Upload coverage XML
         uses: actions/upload-artifact@v4
         with:
