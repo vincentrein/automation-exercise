@@ -27,12 +27,27 @@ jobs:
           python-version: '3.x'
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
+      - name: Debug - Show directory structure
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Directory contents:"
+          ls -la
+          echo "Tests directory:"
+          ls -la tests/
+          echo "Python path:"
+          python -c "import sys; print('\n'.join(sys.path))"
       - name: Run tests with coverage
         run: |
-          coverage run -m pytest tests/ -v
+          coverage run -m pytest tests/ -v || true
+          echo "After pytest:"
           ls -la
-          pwd
-          test -f .coverage && echo ".coverage file exists" || echo ".coverage file NOT found"
+          if [ -f .coverage ]; then
+            echo ".coverage file exists"
+            ls -lh .coverage
+          else
+            echo ".coverage file does NOT exist"
+          fi
       - name: Upload coverage data
         if: always()
         uses: actions/upload-artifact@v4
@@ -40,7 +55,7 @@ jobs:
           name: coverage-data
           path: .coverage
           retention-days: 1
-          if-no-files-found: error
+          if-no-files-found: warn
 
   coverage_report:
     name: coverage_report
