@@ -2,3 +2,6 @@
 .coverage
 coverage.xml
 htmlcov/
+
+# Virtual environment
+venv/
